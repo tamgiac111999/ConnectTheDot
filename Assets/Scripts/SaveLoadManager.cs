@@ -59,6 +59,19 @@ public class SaveLoadManager : MonoBehaviour
         return new List<List<int>>();
     }
 
+    public void SaveLevelDimensions(int levelIndex, int width, int height)
+    {
+        PlayerPrefs.SetInt("widthLevel" + levelIndex.ToString(), width);
+        PlayerPrefs.SetInt("heightLevel" + levelIndex.ToString(), height);
+        PlayerPrefs.Save();
+    }
+
+    public void LoadLevelDimensions(int levelIndex, out int width, out int height)
+    {
+        width = PlayerPrefs.GetInt("widthLevel" + levelIndex.ToString(), 5);
+        height = PlayerPrefs.GetInt("heightLevel" + levelIndex.ToString(), 5);
+    }
+
     [System.Serializable]
     private class SerializableListOfLists<T>
     {

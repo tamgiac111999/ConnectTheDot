@@ -9,7 +9,7 @@ using System.Linq;
 
 public class Field : MonoBehaviour
 {
-    public Tile[] grid;
+    public Tile[] allTiles;
     public Canvas canvas;
     public RectTransform objectRectTransform;
     public TextMeshProUGUI textLevel;
@@ -21,12 +21,16 @@ public class Field : MonoBehaviour
     public GameObject _true;
     public GameObject _false;
     public GameObject setting;
+    public GameObject _behind;
+    public GameObject _grid;
 
     private bool canDrawConnection = false;
     private bool isSetting = false;
     private bool colorLabel = false;
 
     private int value = 0;
+    private int loadedWidth;
+    private int loadedHeight;
     private int levelIndex;
     private int dimensionX1;
     private int dimensionY1;
@@ -44,11 +48,6 @@ public class Field : MonoBehaviour
     private Tile connectionTile;
     private Dictionary<int, TileData> temporary = new Dictionary<int, TileData>();
 
-    private List<Tile> red = new List<Tile>();
-    private List<Tile> blue = new List<Tile>();
-    private List<Tile> yellow = new List<Tile>();
-    private List<Tile> green = new List<Tile>();
-    private List<Tile> purple = new List<Tile>();
     private List<List<Tile>> listConnection = new List<List<Tile>>();
     private List<List<Tile>> answer = new List<List<Tile>>();
 
@@ -61,20 +60,89 @@ public class Field : MonoBehaviour
 
         if (PlayerPrefs.HasKey("gridLevel" + levelIndex))
         {
+            SaveLoadManager.instanceManager.LoadLevelDimensions(levelIndex, out loadedWidth, out loadedHeight);
             loadedGridLevel = SaveLoadManager.instanceManager.LoadGridLevel("gridLevel", levelIndex);
             loadedAnswerLevel = SaveLoadManager.instanceManager.LoadAnswerLevel("answerLevel", levelIndex);
         }
 
-        for (int i = 0; i < grid.Length; i++)
-        {
-            grid[i].onSelected.AddListener(onTileSelected);
-            grid[i].cid = loadedGridLevel[i];
+        allFills = new Fill[loadedWidth * loadedHeight];
+        GameObject fillPrefab = Resources.Load<GameObject>("FillPrefab");
+        RectTransform behindRectTransform = _behind.GetComponent<RectTransform>();
+        GridLayoutGroup behindLayout = _behind.GetComponent<GridLayoutGroup>();
+        behindLayout.cellSize = new Vector2((behindRectTransform.rect.width - behindLayout.spacing.x * (loadedWidth + 1)) / loadedWidth, (behindRectTransform.rect.height - behindLayout.spacing.y * (loadedHeight + 1)) / loadedHeight);
 
-            if (grid[i].cid > 0)
+        if (loadedWidth != loadedHeight)
+        {
+            if (loadedWidth > loadedWidth)
             {
-                grid[i].SetConnectionColor(allColorMark[grid[i].cid - 1]);
-                grid[i].SetMarkColor(allColorMark[grid[i].cid - 1]);
-                grid[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = grid[i].cid.ToString();
+                behindRectTransform.sizeDelta = new Vector2(behindRectTransform.rect.width, behindRectTransform.rect.height - (behindLayout.spacing.y + loadedHeight));
+            }
+            else
+            {
+                behindRectTransform.sizeDelta = new Vector2(behindRectTransform.rect.width - (behindLayout.spacing.x + loadedWidth), behindRectTransform.rect.height);
+            }
+        }
+
+        for (int i = 0; i < loadedWidth * loadedHeight; i++)
+        {
+            GameObject fillInstance = Instantiate(fillPrefab, behindRectTransform);
+            Fill fillComponent = fillInstance.GetComponent<Fill>();
+
+            if (fillComponent != null)
+            {
+                allFills[i] = fillComponent;
+            }
+        }
+
+        allTiles = new Tile[loadedWidth * loadedHeight];
+        GameObject tilePrefab = Resources.Load<GameObject>("TilePrefab");
+        RectTransform gridRectTransform = _grid.GetComponent<RectTransform>();
+        GridLayoutGroup gridLayout = _grid.GetComponent<GridLayoutGroup>();
+        gridLayout.cellSize = new Vector2((gridRectTransform.rect.width - gridLayout.spacing.x * (loadedWidth + 1)) / loadedWidth, (gridRectTransform.rect.height - gridLayout.spacing.y * (loadedHeight + 1)) / loadedHeight);
+        if (loadedWidth != loadedHeight)
+        {
+            if (loadedWidth > loadedWidth)
+            {
+                gridRectTransform.sizeDelta = new Vector2(gridRectTransform.rect.width, gridRectTransform.rect.height - (gridLayout.spacing.y + loadedHeight));
+            }
+            else
+            {
+                gridRectTransform.sizeDelta = new Vector2(gridRectTransform.rect.width - (gridLayout.spacing.x + loadedWidth), gridRectTransform.rect.height);
+            }
+        }
+
+        for (int i = 0; i < loadedWidth * loadedHeight; i++)
+        {
+            GameObject tileInstance = Instantiate(tilePrefab, gridRectTransform);
+
+            RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
+            pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 5f, gridLayout.cellSize.y + 5f);
+            pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 5f);
+
+            RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
+            markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
+            
+            TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
+            textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
+
+            Tile tileComponent = tileInstance.GetComponent<Tile>();
+
+            if (tileComponent != null)
+            {
+                allTiles[i] = tileComponent;
+            }
+        }
+
+        for (int i = 0; i < allTiles.Length; i++)
+        {
+            allTiles[i].onSelected.AddListener(onTileSelected);
+            allTiles[i].cid = loadedGridLevel[i];
+
+            if (allTiles[i].cid > 0)
+            {
+                allTiles[i].SetConnectionColor(allColorMark[allTiles[i].cid - 1]);
+                allTiles[i].SetMarkColor(allColorMark[allTiles[i].cid - 1]);
+                allTiles[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
             }
         }
 
@@ -92,7 +160,7 @@ public class Field : MonoBehaviour
 
                 foreach (int index in tileIndices)
                 {
-                    tileList.Add(grid[index]);
+                    tileList.Add(allTiles[index]);
                 }
 
                 answer.Add(tileList);
@@ -125,7 +193,7 @@ public class Field : MonoBehaviour
             Tile hitTile = null;
             int index = 0;
 
-            foreach (Tile tile in grid)
+            foreach (Tile tile in allTiles)
             {
                 if (RectTransformUtility.RectangleContainsScreenPoint(tile.GetComponent<RectTransform>(), Input.mousePosition, canvas.worldCamera))
                 {
@@ -193,10 +261,10 @@ public class Field : MonoBehaviour
 
     public void CheckIsGrid()
     {
-        for (int i = 0; i < grid.Length; i++)
+        for (int i = 0; i < allTiles.Length; i++)
         {
-            grid[i].coefficient = 0;
-            grid[i].ResetConnection();
+            allTiles[i].coefficient = 0;
+            allTiles[i].ResetConnection();
         }
 
         for (int i = 0; i < listConnection.Count; i++)
@@ -236,11 +304,11 @@ public class Field : MonoBehaviour
     {
         if (_connections.Count == 1)
         {
-            for (int i = 0; i < grid.Length; i++)
+            for (int i = 0; i < allTiles.Length; i++)
             {
-                if (_connections[0] == grid[i])
+                if (_connections[0] == allTiles[i])
                 {
-                    grid[i].coefficient = 0;
+                    allTiles[i].coefficient = 0;
                 }
             }
         }
@@ -401,7 +469,7 @@ public class Field : MonoBehaviour
 
     public bool CheckIfTilesMatch()
     {
-        return grid.All((tile) => tile.coefficient > 0);
+        return allTiles.All((tile) => tile.coefficient > 0);
     }
 
     public bool CheckIsTurning(List<Tile> _connections)
@@ -462,9 +530,9 @@ public class Field : MonoBehaviour
 
     public void CheckIsFillColor()
     {
-        for (int i = 0; i < grid.Length; i++)
+        for (int i = 0; i < allTiles.Length; i++)
         {
-            allFills[i].SetFillColor(allColorConnection[grid[i].coefficient]);
+            allFills[i].SetFillColor(allColorConnection[allTiles[i].coefficient]);
         }
     }
 
@@ -495,7 +563,7 @@ public class Field : MonoBehaviour
 
     public void SelectedTile(List<Tile> _connections, Tile _tile)
     {
-        int index = Array.IndexOf(grid, _tile);
+        int index = Array.IndexOf(allTiles, _tile);
 
         if (_tile.cid > 0)
         {
@@ -593,7 +661,7 @@ public class Field : MonoBehaviour
     {
         if(colorLabel)
         {
-            foreach (Tile tile in grid)
+            foreach (Tile tile in allTiles)
             {
                 if (tile.cid > 0)
                 {
@@ -607,7 +675,7 @@ public class Field : MonoBehaviour
         }
         else
         {
-            foreach (Tile tile in grid)
+            foreach (Tile tile in allTiles)
             {
                 if (tile.cid > 0)
                 {
