@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,42 +20,24 @@ public class SaveLoadManager : MonoBehaviour
 
     public void SaveGridLevel(List<int> gridLevel, string textGridLevel, int levelPuzzle)
     {
-        string json = JsonUtility.ToJson(new SerializableList<int>(gridLevel));
-        PlayerPrefs.SetString(textGridLevel + levelPuzzle.ToString(), json);
+        PlayerPrefs.SetString(textGridLevel + levelPuzzle.ToString(), JsonUtility.ToJson(new SerializableList<int>(gridLevel)));
         PlayerPrefs.Save();
     }
 
     public List<int> LoadGridLevel(string textGridLevel, int levelPuzzle)
     {
-        string json = PlayerPrefs.GetString(textGridLevel + levelPuzzle.ToString());
-        SerializableList<int> serializedList = JsonUtility.FromJson<SerializableList<int>>(json);
-
-        if (serializedList != null)
-        {
-            return serializedList.ToList();
-        }
-
-        return new List<int>();
+        return JsonUtility.FromJson<SerializableList<int>>(PlayerPrefs.GetString(textGridLevel + levelPuzzle.ToString()))?.ToList() ?? new List<int>();
     }
 
     public void SaveAnswerLevel(List<List<int>> answerLevel, string textAnswerLevel, int levelPuzzle)
     {
-        string json = JsonUtility.ToJson(new SerializableListOfLists<int>(answerLevel));
-        PlayerPrefs.SetString(textAnswerLevel + levelPuzzle.ToString(), json);
+        PlayerPrefs.SetString(textAnswerLevel + levelPuzzle.ToString(), JsonUtility.ToJson(new SerializableListOfLists<int>(answerLevel)));
         PlayerPrefs.Save();
     }
 
     public List<List<int>> LoadAnswerLevel(string textAnswerLevel, int levelPuzzle)
     {
-        string json = PlayerPrefs.GetString(textAnswerLevel + levelPuzzle.ToString());
-        SerializableListOfLists<int> serializedList = JsonUtility.FromJson<SerializableListOfLists<int>>(json);
-
-        if (serializedList != null)
-        {
-            return serializedList.ToList();
-        }
-
-        return new List<List<int>>();
+        return JsonUtility.FromJson<SerializableListOfLists<int>>(PlayerPrefs.GetString(textAnswerLevel + levelPuzzle.ToString()))?.ToList() ?? new List<List<int>>();
     }
 
     public void SaveLevelDimensions(int levelIndex, int width, int height)

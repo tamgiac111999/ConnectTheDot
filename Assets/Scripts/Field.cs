@@ -10,24 +10,20 @@ using System.Linq;
 public class Field : MonoBehaviour
 {
     public Tile[] allTiles;
-    public Canvas canvas;
-    public RectTransform objectRectTransform;
-    public TextMeshProUGUI textLevel;
-
     public Fill[] allFills;
     public Color[] allColorConnection;
     public Color[] allColorMark;
-
+    public Canvas canvas;
+    public TextMeshProUGUI textLevel;
     public GameObject _true;
     public GameObject _false;
-    public GameObject setting;
+    public GameObject _setting;
     public GameObject _behind;
     public GameObject _grid;
 
     private bool canDrawConnection = false;
     private bool isSetting = false;
     private bool colorLabel = false;
-
     private int value = 0;
     private int loadedWidth;
     private int loadedHeight;
@@ -38,19 +34,16 @@ public class Field : MonoBehaviour
     private int dimensionY2;
     private int mouseGridX;
     private int mouseGridY;
-
     private List<int> loadedGridLevel;
     private List<List<int>> loadedAnswerLevel;
-
     private RectTransform canvasRectTransform;
     private RectTransform settingRectTransform;
-
+    private RectTransform behindRectTransform;
+    private RectTransform gridRectTransform;
     private Tile connectionTile;
     private Dictionary<int, TileData> temporary = new Dictionary<int, TileData>();
-
     private List<List<Tile>> listConnection = new List<List<Tile>>();
     private List<List<Tile>> answer = new List<List<Tile>>();
-
     private Dictionary<int, List<List<Tile>>> dictionary = new Dictionary<int, List<List<Tile>>>();
 
     void Awake()
@@ -65,23 +58,417 @@ public class Field : MonoBehaviour
             loadedAnswerLevel = SaveLoadManager.instanceManager.LoadAnswerLevel("answerLevel", levelIndex);
         }
 
-        allFills = new Fill[loadedWidth * loadedHeight];
-        GameObject fillPrefab = Resources.Load<GameObject>("FillPrefab");
-        RectTransform behindRectTransform = _behind.GetComponent<RectTransform>();
-        GridLayoutGroup behindLayout = _behind.GetComponent<GridLayoutGroup>();
-        behindLayout.cellSize = new Vector2((behindRectTransform.rect.width - behindLayout.spacing.x * (loadedWidth + 1)) / loadedWidth, (behindRectTransform.rect.height - behindLayout.spacing.y * (loadedHeight + 1)) / loadedHeight);
+        InitializeFills();
+        InitializeTiles();
+    }
 
-        if (loadedWidth != loadedHeight)
+    void Start()
+    {
+        canvasRectTransform = canvas.GetComponent<RectTransform>();
+        settingRectTransform = _setting.GetComponent<RectTransform>();
+        Vector3[] corners = new Vector3[4];
+        gridRectTransform.GetWorldCorners(corners);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[0]), canvas.worldCamera, out Vector2 localCorner0);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[2]), canvas.worldCamera, out Vector2 localCorner2);
+        dimensionX1 = (int)localCorner0.x;
+        dimensionY1 = (int)localCorner0.y;
+        dimensionX2 = (int)localCorner2.x;
+        dimensionY2 = (int)localCorner2.y;
+        dictionary.Add(1, listConnection);
+    }
+
+    void Update()
+    {
+        HandleSetting();
+
+        if (canDrawConnection)
         {
-            if (loadedWidth > loadedWidth)
+            DrawConnection();
+        }
+        else
+        {
+            ResetTiles();
+        }
+    }
+
+    void HandleSetting()
+    {
+        if (isSetting && Input.GetMouseButtonDown(0))
+        {
+            if (settingRectTransform != null)
             {
-                behindRectTransform.sizeDelta = new Vector2(behindRectTransform.rect.width, behindRectTransform.rect.height - (behindLayout.spacing.y + loadedHeight));
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(settingRectTransform, Input.mousePosition, canvas.worldCamera, out Vector2 localMousePosition);
+
+                if (!settingRectTransform.rect.Contains(localMousePosition))
+                {
+                    _setting.SetActive(false);
+                    isSetting = false;
+                }
+            }
+        }
+    }
+
+    void DrawConnection()
+    {
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, Input.mousePosition, canvas.worldCamera, out Vector2 canvasMousePosition);
+        mouseGridX = (int)canvasMousePosition.x;
+        mouseGridY = (int)canvasMousePosition.y;
+
+        if (mouseGridY > dimensionY2 || mouseGridY < dimensionY1 || mouseGridX > dimensionX2 || mouseGridX < dimensionX1) return;
+
+        Tile hitTile = GetHitTile();
+
+        if (hitTile != null)
+        {
+            ProcessHitTile(hitTile);
+        }
+    }
+
+    Tile GetHitTile()
+    {
+        foreach (Tile tile in allTiles)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(tile.GetComponent<RectTransform>(), Input.mousePosition, canvas.worldCamera))
+            {
+                return tile;
+            }
+        }
+
+        return null;
+    }
+
+    void ProcessHitTile(Tile hitTile)
+    {
+        Tile firstTile = listConnection[value - 1][0];
+
+        if (hitTile.cid > 0 && hitTile.cid != firstTile.cid) return;
+
+        Vector2[] connectionTilePosition = GetConnectionTilePosition();
+
+        if (!IsValidPosition_1(connectionTilePosition)) return;
+
+        if (IsValidPosition_2(connectionTilePosition)) return;
+
+        if ((listConnection[value - 1].FindAll(isTile => isTile.cid > 0 && isTile.coefficient == isTile.cid).Count == 2) && hitTile.coefficient != connectionTile.coefficient) return;
+
+        UpdateTileColors(hitTile, firstTile, connectionTilePosition);
+
+        if (hitTile.coefficient > 0 && hitTile.coefficient != connectionTile.coefficient)
+        {
+            ProcessTemporaryConnection(hitTile);
+        }
+
+        connectionTile = hitTile;
+        connectionTile.coefficient = firstTile.cid;
+        listConnection[value - 1].Add(connectionTile);
+        CheckIsConnections(listConnection[value - 1]);
+        ProcessTemporaryList();
+        UpdateAllTileColors();
+
+        if (allTiles.All(tile => tile.coefficient > 0))
+        {
+            canDrawConnection = false;
+        }
+    }
+
+    Vector2[] GetConnectionTilePosition()
+    {
+        Vector3[] tileCorners = new Vector3[4];
+        connectionTile.GetComponent<RectTransform>().GetWorldCorners(tileCorners);
+        Vector2[] connectionTilePosition = new Vector2[4];
+
+        for (int i = 0; i < 4; i++)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, tileCorners[i]), canvas.worldCamera, out connectionTilePosition[i]);
+        }
+
+        return connectionTilePosition;
+    }
+
+    bool IsValidPosition_1(Vector2[] connectionTilePosition)
+    {
+        return  mouseGridY > (int)connectionTilePosition[2].y ||
+                mouseGridY < (int)connectionTilePosition[0].y ||
+                mouseGridX > (int)connectionTilePosition[2].x ||
+                mouseGridX < (int)connectionTilePosition[0].x;
+    }
+
+    bool IsValidPosition_2(Vector2[] connectionTilePosition)
+    {
+        return  (
+                    (mouseGridX < (int)connectionTilePosition[0].x && mouseGridY > (int)connectionTilePosition[2].y) || 
+                    (mouseGridX < (int)connectionTilePosition[0].x && mouseGridY < (int)connectionTilePosition[0].y) || 
+                    (mouseGridX > (int)connectionTilePosition[2].x && mouseGridY > (int)connectionTilePosition[2].y) || 
+                    (mouseGridX > (int)connectionTilePosition[2].x && mouseGridY < (int)connectionTilePosition[0].y)
+                ) ||
+                (
+                    Math.Abs(mouseGridX - ((mouseGridX > (int)connectionTilePosition[2].x) ? (int)connectionTilePosition[2].x : (int)connectionTilePosition[0].x)) > ((dimensionX2 * 2 - (loadedWidth + 1) * 5) / loadedWidth + 5) ||
+                    Math.Abs(mouseGridY - ((mouseGridY > (int)connectionTilePosition[2].y) ? (int)connectionTilePosition[2].y : (int)connectionTilePosition[0].y)) > ((dimensionX2 * 2 - (loadedWidth + 1) * 5) / loadedWidth + 5)
+                );
+    }
+
+    void UpdateTileColors(Tile hitTile, Tile firstTile, Vector2[] connectionTilePosition)
+    {
+        allFills[Array.IndexOf(allTiles, hitTile)].SetFillColor(allColorConnection[firstTile.cid]);
+        hitTile.SetConnectionColor(connectionTile.ConnectionColor);
+
+        connectionTile.ConnectionToSide(
+            mouseGridY > (int)connectionTilePosition[2].y,
+            mouseGridX > (int)connectionTilePosition[2].x,
+            mouseGridY < (int)connectionTilePosition[0].y,
+            mouseGridX < (int)connectionTilePosition[0].x
+        );
+    }
+
+    void ProcessTemporaryConnection(Tile hitTile)
+    {
+        var tileData = new TileData
+        {
+            SomeCid = listConnection[hitTile.coefficient - 1][0].cid,
+            SomeConnectionTile = hitTile,
+            SomeConnection = new List<Tile>(listConnection[hitTile.coefficient - 1])
+        };
+
+        int nextKey = temporary.Keys.Count > 0 ? temporary.Keys.Max() + 1 : 1;
+        temporary.Add(nextKey, tileData);
+        int index = listConnection[hitTile.coefficient - 1].IndexOf(hitTile);
+        listConnection[hitTile.coefficient - 1].Add(listConnection[hitTile.coefficient - 1][index]);
+        CheckIsConnections(listConnection[hitTile.coefficient - 1]);
+        listConnection[hitTile.coefficient - 1].Add(listConnection[hitTile.coefficient - 1][listConnection[hitTile.coefficient - 1].Count - 2]);
+        CheckIsConnections(listConnection[hitTile.coefficient - 1]);
+        UpdateAllTileColors();
+    }
+
+    void ProcessTemporaryList()
+    {
+        if (temporary.Count > 0)
+        {
+            int index = temporary.Count;
+
+            for (int i = 0; i < index; i++)
+            {
+                int lastKey = temporary.Keys.Max();
+                Tile lastConnectionTile = temporary[lastKey].SomeConnectionTile;
+                bool foundMatch = listConnection[value - 1].Contains(lastConnectionTile);
+
+                if (foundMatch)
+                {
+                    break;
+                }
+                else
+                {
+                    RestoreTemporaryConnection(lastKey);
+                }
+            }
+        }
+    }
+
+    void SetTileConnections(List<Tile> connection)
+    {
+        if (connection.Count <= 1) return;
+        
+        connection[0].coefficient = connection[0].cid;
+
+        for (int i = 0; i < connection.Count - 1; i++)
+        {
+            Tile tile = connection[i];
+            Tile nextTile = connection[i + 1];
+            nextTile.coefficient = tile.coefficient;
+            nextTile.SetConnectionColor(tile.ConnectionColor);
+            Vector2[] tilePosition = GetTilePosition(tile);
+            Vector2[] nextTilePosition = GetTilePosition(nextTile);
+
+            tile.ConnectionToSide(
+                IsAbove(nextTilePosition, tilePosition), 
+                IsRight(nextTilePosition, tilePosition), 
+                IsBelow(nextTilePosition, tilePosition),
+                IsLeft(nextTilePosition, tilePosition)
+            );
+        }
+    }
+
+    bool IsAbove(Vector2[] nextTilePosition, Vector2[] tilePosition) => ((int)nextTilePosition[2].y + (int)nextTilePosition[0].y) / 2 > (int)tilePosition[2].y;
+
+    bool IsRight(Vector2[] nextTilePosition, Vector2[] tilePosition) => ((int)nextTilePosition[2].x + (int)nextTilePosition[0].x) / 2 > (int)tilePosition[2].x;
+
+    bool IsBelow(Vector2[] nextTilePosition, Vector2[] tilePosition) => ((int)nextTilePosition[2].y + (int)nextTilePosition[0].y) / 2 < (int)tilePosition[0].y;
+
+    bool IsLeft(Vector2[] nextTilePosition, Vector2[] tilePosition) => ((int)nextTilePosition[2].x + (int)nextTilePosition[0].x) / 2 < (int)tilePosition[0].x;
+
+    void RestoreTemporaryConnection(int lastKey)
+    {
+        listConnection[temporary[lastKey].SomeCid - 1].Clear();
+        listConnection[temporary[lastKey].SomeCid - 1].AddRange(temporary[lastKey].SomeConnection);
+        ResetConnectionTiles(temporary[lastKey].SomeConnection);
+        SetTileConnections(temporary[lastKey].SomeConnection);
+        temporary.Remove(lastKey);
+    }
+
+    void ResetConnectionTiles(List<Tile> connection)
+    {
+        foreach (Tile tile in connection)
+        {
+            tile.coefficient = 0;
+            tile.ResetConnection();
+        }
+    }
+
+    Vector2[] GetTilePosition(Tile tile)
+    {
+        Vector3[] tileCorners = new Vector3[4];
+        tile.GetComponent<RectTransform>().GetWorldCorners(tileCorners);
+        Vector2[] tilePosition = new Vector2[4];
+
+        for (int i = 0; i < 4; i++)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, tileCorners[i]), canvas.worldCamera, out tilePosition[i]);
+        }
+
+        return tilePosition;
+    }
+
+    void ResetTiles()
+    {
+        foreach (List<Tile> connection in listConnection)
+        {
+            if (connection.Count == 1)
+            {
+                foreach (Tile tile in allTiles)
+                {
+                    if (connection[0] == tile)
+                    {
+                        tile.coefficient = 0;
+                    }
+                }
+            }
+        }
+
+        temporary.Clear();
+        UpdateAllTileColors();
+
+        if (allTiles.All(tile => tile.coefficient > 0))
+        {
+            StartCoroutine(WaitAndDoSomething(1.0f));
+        }
+    }
+
+    void UpdateAllTileColors()
+    {
+        for (int i = 0; i < allTiles.Length; i++)
+        {
+            allFills[i].SetFillColor(allColorConnection[allTiles[i].coefficient]);
+        }
+    }
+
+    IEnumerator WaitAndDoSomething(float waitTime)
+    {
+        yield return new WaitForSeconds(waitTime);
+        gameObject.SetActive(false);
+        Congratulations.instanceCongratulations.youBeatLevel.text = "Level " + levelIndex.ToString();
+        Congratulations.instanceCongratulations.nextLevel.text = "Level " + (levelIndex + 1).ToString();
+    }
+
+    void CheckIsConnections(List<Tile> connections)
+    {
+        bool foundPair;
+
+        do
+        {
+            foundPair = false;
+
+            for (int i = 0; i < connections.Count - 1; i++)
+            {
+                for (int j = i + 1; j < connections.Count; j++)
+                {
+                    if (connections[i] == connections[j])
+                    {
+                        connections.GetRange(i, j - i + 1).ForEach(tile =>
+                        {
+                            tile.ResetConnection();
+
+                            if (connections.IndexOf(tile) + 1 < j) connections[connections.IndexOf(tile) + 1].coefficient = 0;
+                        });
+
+                        connections.RemoveRange(i + 1, j - i);
+                        foundPair = true;
+                        break;
+                    }
+                }
+
+                if (foundPair) break;
+            }
+        } while (foundPair);
+    }
+
+    void onTileSelected(Tile _tile)
+    {
+        if (!_tile.isSelected) 
+        {
+            List<List<Tile>> newList = listConnection.Select(list => new List<Tile>(list)).ToList();
+            int nextKey = dictionary.Keys.Count > 0 ? dictionary.Keys.Max() + 1 : 1;
+            dictionary.Add(nextKey, newList);
+            canDrawConnection = false;
+            return;
+        }
+
+        if (_tile.coefficient == 0 && _tile.cid == 0) return;
+
+        value = Mathf.Max(_tile.coefficient, _tile.cid);
+        List<Tile> _connections = listConnection[value - 1];
+        int index = Array.IndexOf(allTiles, _tile);
+
+        if (_tile.cid > 0)
+        {
+            if (_connections.Count > 0)
+            {
+                if (_tile != _connections[0])
+                {
+                    _connections[0].coefficient = 0;
+                    _connections.Insert(0, _tile);
+                }
+
+                _connections.Add(_connections[0]);
+                CheckIsConnections(_connections);
+                connectionTile = _tile;
+                connectionTile.coefficient = _connections[0].cid;
             }
             else
             {
-                behindRectTransform.sizeDelta = new Vector2(behindRectTransform.rect.width - (behindLayout.spacing.x + loadedWidth), behindRectTransform.rect.height);
+                connectionTile = _tile;
+                connectionTile.coefficient = connectionTile.cid;
             }
         }
+        else
+        {
+            connectionTile = _tile;
+            connectionTile.coefficient = _connections[0].cid;
+        }
+
+        _connections.Add(connectionTile);
+        CheckIsConnections(_connections);
+        allFills[index].SetFillColor(allColorConnection[connectionTile.coefficient]);
+
+        foreach (Tile tile in allTiles)
+        {
+            allFills[Array.IndexOf(allTiles, tile)].SetFillColor(allColorConnection[tile.coefficient]);
+        }
+
+        canDrawConnection = true;
+    }
+
+    void InitializeFills()
+    {
+        allFills = new Fill[loadedWidth * loadedHeight];
+        GameObject fillPrefab = Resources.Load<GameObject>("FillPrefab");
+        behindRectTransform = _behind.GetComponent<RectTransform>();
+        GridLayoutGroup behindLayout = _behind.GetComponent<GridLayoutGroup>();
+
+        behindLayout.cellSize = new Vector2(
+            (behindRectTransform.rect.width - behindLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
+            (behindRectTransform.rect.height - behindLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
+        );
+
+        AdjustRectTransformSize(behindRectTransform, behindLayout, loadedWidth, loadedHeight);
 
         for (int i = 0; i < loadedWidth * loadedHeight; i++)
         {
@@ -93,38 +480,26 @@ public class Field : MonoBehaviour
                 allFills[i] = fillComponent;
             }
         }
+    }
 
+    void InitializeTiles()
+    {
         allTiles = new Tile[loadedWidth * loadedHeight];
         GameObject tilePrefab = Resources.Load<GameObject>("TilePrefab");
-        RectTransform gridRectTransform = _grid.GetComponent<RectTransform>();
+        gridRectTransform = _grid.GetComponent<RectTransform>();
         GridLayoutGroup gridLayout = _grid.GetComponent<GridLayoutGroup>();
-        gridLayout.cellSize = new Vector2((gridRectTransform.rect.width - gridLayout.spacing.x * (loadedWidth + 1)) / loadedWidth, (gridRectTransform.rect.height - gridLayout.spacing.y * (loadedHeight + 1)) / loadedHeight);
-        if (loadedWidth != loadedHeight)
-        {
-            if (loadedWidth > loadedWidth)
-            {
-                gridRectTransform.sizeDelta = new Vector2(gridRectTransform.rect.width, gridRectTransform.rect.height - (gridLayout.spacing.y + loadedHeight));
-            }
-            else
-            {
-                gridRectTransform.sizeDelta = new Vector2(gridRectTransform.rect.width - (gridLayout.spacing.x + loadedWidth), gridRectTransform.rect.height);
-            }
-        }
+
+        gridLayout.cellSize = new Vector2(
+            (gridRectTransform.rect.width - gridLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
+            (gridRectTransform.rect.height - gridLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
+        );
+
+        AdjustRectTransformSize(gridRectTransform, gridLayout, loadedWidth, loadedHeight);
 
         for (int i = 0; i < loadedWidth * loadedHeight; i++)
         {
             GameObject tileInstance = Instantiate(tilePrefab, gridRectTransform);
-
-            RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
-            pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 5f, gridLayout.cellSize.y + 5f);
-            pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 5f);
-
-            RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
-            markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
-            
-            TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
-            textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
-
+            SetTilePrefabProperties(tileInstance, gridLayout);
             Tile tileComponent = tileInstance.GetComponent<Tile>();
 
             if (tileComponent != null)
@@ -133,6 +508,33 @@ public class Field : MonoBehaviour
             }
         }
 
+        InitializeTileProperties();
+        InitializeConnections();
+    }
+
+    void AdjustRectTransformSize(RectTransform rectTransform, GridLayoutGroup layoutGroup, int width, int height)
+    {
+        if (width != height)
+        {
+            float cellSizeChange = (width > height) ? -1 : 1;
+            float newSizeDelta = rectTransform.rect.height + (layoutGroup.spacing.y + (Mathf.Abs(width - height)) * layoutGroup.cellSize.y) * cellSizeChange;
+            rectTransform.sizeDelta = new Vector2(rectTransform.rect.width, newSizeDelta);
+        }
+    }
+
+    void SetTilePrefabProperties(GameObject tileInstance, GridLayoutGroup gridLayout)
+    {
+        RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
+        pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 5f, gridLayout.cellSize.y + 5f);
+        pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 5f);
+        RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
+        markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
+        TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
+        textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
+    }
+
+    void InitializeTileProperties()
+    {
         for (int i = 0; i < allTiles.Length; i++)
         {
             allTiles[i].onSelected.AddListener(onTileSelected);
@@ -145,7 +547,10 @@ public class Field : MonoBehaviour
                 allTiles[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
             }
         }
+    }
 
+    void InitializeConnections()
+    {
         for (int i = 0; i < loadedGridLevel.Max(); i++)
         {
             listConnection.Add(new List<Tile>());
@@ -168,451 +573,53 @@ public class Field : MonoBehaviour
         }
     }
 
-    void Start()
-    {
-        canvasRectTransform = canvas.GetComponent<RectTransform>();
-        settingRectTransform = setting.GetComponent<RectTransform>();
-        Vector3[] corners = new Vector3[4];
-        objectRectTransform.GetWorldCorners(corners);
-        dimensionX1 = (int)corners[0].x;
-        dimensionY1 = (int)corners[0].y;
-        dimensionX2 = (int)corners[2].x;
-        dimensionY2 = (int)corners[2].y;
-
-        dictionary.Add(1, listConnection);
-    }
-
-    void Update()
-    {
-        if (canDrawConnection)
-        {
-            UpdateMouseGridPosition();
-            
-            if (IsMouseOutsideGrid()) return;
-
-            Tile hitTile = null;
-            int index = 0;
-
-            foreach (Tile tile in allTiles)
-            {
-                if (RectTransformUtility.RectangleContainsScreenPoint(tile.GetComponent<RectTransform>(), Input.mousePosition, canvas.worldCamera))
-                {
-                    hitTile = tile;
-                    break;
-                }
-
-                index++;
-            }
-
-            if (hitTile != null)
-            {
-                ContinueSection(listConnection[value - 1], hitTile, index);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < listConnection.Count; i++)
-            {
-                CheckIsCoefficient(listConnection[i]);
-            }
-
-            temporary.Clear();
-            CheckIsFillColor();
-
-            if (CheckIfTilesMatch())
-            {
-                StartCoroutine(WaitAndDoSomething(1.0f));
-            }
-        }
-
-        if (isSetting)
-        {
-            OutSetting();
-        }
-    }
-
-    void UpdateMouseGridPosition()
-    {
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, Input.mousePosition, canvas.worldCamera, out Vector2 canvasMousePosition);
-        Vector3 canvasPosition = canvasRectTransform.anchoredPosition;
-        mouseGridX = (int)(canvasPosition.x + canvasMousePosition.x);
-        mouseGridY = (int)(canvasPosition.y + canvasMousePosition.y);
-    }
-
     public void Undo()
     {
         if (dictionary.Count <= 1) return;
 
-        List<List<Tile>> _replica = dictionary[dictionary.Count - 1];
-
         for (int i = 0; i < listConnection.Count; i++)
         {
             listConnection[i].Clear();
-        }
-
-        for (int i = 0; i < listConnection.Count; i++)
-        {
-            listConnection[i].AddRange(_replica[i]);
+            listConnection[i].AddRange(dictionary[dictionary.Count - 1][i]);
         }
         
-        CheckIsGrid();
+        foreach (Tile tile in allTiles)
+        {
+            tile.coefficient = 0;
+            tile.ResetConnection();
+        }
+
+        foreach (var connection in listConnection)
+        {
+            SetTileConnections(connection);
+        }
+
+        UpdateAllTileColors();
         dictionary.Remove(dictionary.Count);
-    }
-
-    public void CheckIsGrid()
-    {
-        for (int i = 0; i < allTiles.Length; i++)
-        {
-            allTiles[i].coefficient = 0;
-            allTiles[i].ResetConnection();
-        }
-
-        for (int i = 0; i < listConnection.Count; i++)
-        {
-            UndoConnections(listConnection[i]);
-        }
-
-        CheckIsFillColor();
-    }
-
-    public void UndoConnections(List<Tile> _connections)
-    {
-        if (_connections.Count <= 1) return;
-
-        _connections[0].coefficient = _connections[0].cid;
-
-        for (int i = 0; i < _connections.Count - 1; i++)
-        {
-            Tile tile = _connections[i];
-            Tile nextTile = _connections[i + 1];
-            nextTile.coefficient = tile.coefficient;
-            nextTile.SetConnectionColor(tile.ConnectionColor);
-            Vector3[] tilePosition = FindTileCoordinates(tile);
-            Vector3[] nextTilePosition = FindTileCoordinates(nextTile);
-
-            tile.ConnectionToSide
-            (
-                System.Math.Abs(((int)nextTilePosition[2].y + (int)nextTilePosition[0].y) / 2) > (int)tilePosition[2].y,
-                System.Math.Abs(((int)nextTilePosition[2].x + (int)nextTilePosition[0].x) / 2) > (int)tilePosition[2].x,
-                System.Math.Abs(((int)nextTilePosition[2].y + (int)nextTilePosition[0].y) / 2) < (int)tilePosition[0].y,
-                System.Math.Abs(((int)nextTilePosition[2].x + (int)nextTilePosition[0].x) / 2) < (int)tilePosition[0].x
-            );
-        }
-    }
-
-    public void CheckIsCoefficient(List<Tile> _connections)
-    {
-        if (_connections.Count == 1)
-        {
-            for (int i = 0; i < allTiles.Length; i++)
-            {
-                if (_connections[0] == allTiles[i])
-                {
-                    allTiles[i].coefficient = 0;
-                }
-            }
-        }
-    }
-
-    public void ContinueSection(List<Tile> _connections, Tile _tile, int index)
-    {
-        Tile firstTile = _connections[0];
-
-        if (_tile.cid > 0 && _tile.cid != firstTile.cid) return;
-
-        Vector3[] connectionTilePosition = FindTileCoordinates(connectionTile);
-        
-        if (!CheckMouseOutsideTile(mouseGridX, mouseGridY, connectionTilePosition)) return;
-
-        if (CheckIsShiftDiagonal(mouseGridX, mouseGridY, connectionTilePosition) || CheckIsShiftNotOnNext(mouseGridX, mouseGridY, connectionTilePosition)) return;
-
-        if (CheckIsTurning(_connections) && _tile.coefficient != connectionTile.coefficient) return;
-
-        allFills[index].SetFillColor(allColorConnection[firstTile.cid]);
-        _tile.SetConnectionColor(connectionTile.ConnectionColor);
-
-        connectionTile.ConnectionToSide
-        (
-            mouseGridY > (int)connectionTilePosition[2].y,
-            mouseGridX > (int)connectionTilePosition[2].x,
-            mouseGridY < (int)connectionTilePosition[0].y,
-            mouseGridX < (int)connectionTilePosition[0].x
-        );
-
-        Intersecting(_tile, connectionTile);
-
-        connectionTile = _tile;
-        connectionTile.coefficient = firstTile.cid;
-        _connections.Add(connectionTile);
-        CheckIsConnections(_connections);
-
-        ConnectionTemporary(_connections);
-
-        CheckIsFillColor();
-
-        if (CheckIfTilesMatch())
-        {
-            canDrawConnection = false;
-        }
-    }
-
-    IEnumerator WaitAndDoSomething(float waitTime)
-    {
-        yield return new WaitForSeconds(waitTime);
-
-        gameObject.SetActive(false);
-
-        Congratulations.instanceCongratulations.youBeatLevel.text = "Level " + levelIndex.ToString();
-        Congratulations.instanceCongratulations.nextLevel.text = "Level " + (levelIndex + 1).ToString();
-    }
-
-    void Intersecting(Tile _tile, Tile _hoverTile)
-    {
-        if (_tile.coefficient > 0 && _tile.coefficient != _hoverTile.coefficient)
-        {
-            CheckIntersecting(listConnection[_tile.coefficient - 1], _tile);
-        }
     }
 
     public void Hint()
     {
-        List<Tile> replica = new List<Tile>();
-
         for (int i = 0; i < listConnection.Count; i++)
         {
             if (listConnection[i].Count != answer[i].Count)
             {
-                foreach (Tile hitTile in listConnection[i])
-                {
-                    hitTile.coefficient = 0;
-                    hitTile.ResetConnection();
-                }
-                
+                ResetConnectionTiles(listConnection[i]);
                 listConnection[i].Clear();
                 listConnection[i].AddRange(answer[i]);
-                replica = answer[i];
 
                 for (int j = 0; j < answer[i].Count - 1; j++)
                 {
-                    Intersecting(replica[j + 1], replica[j]);
-                }
-
-                UndoConnections(listConnection[i]);
-
-                break;
-            }
-        }
-    }
-
-    public void ConnectionTemporary(List<Tile> _connections)
-    {
-        if (temporary.Count == 0) return;
-
-        int index = temporary.Count;
-
-        for (int i = 0; i < index; i++)
-        {
-            int lastKey = temporary.Keys.Max();
-            Tile lastConnectionTile = temporary[lastKey].SomeConnectionTile;
-
-            bool foundMatch = false;
-
-            foreach (Tile tile in _connections)
-            {
-                if (tile == lastConnectionTile)
-                {
-                    foundMatch = true;
-                    break;
-                }
-            }
-
-            if (foundMatch)
-            {
-                return;
-            }
-            else
-            {
-                listConnection[temporary[lastKey].SomeCid - 1].Clear();
-                listConnection[temporary[lastKey].SomeCid - 1].AddRange(temporary[lastKey].SomeConnection);
-
-                foreach (Tile tile in temporary[lastKey].SomeConnection)
-                {
-                    tile.coefficient = 0;
-                    tile.ResetConnection();
-                }
-
-                UndoConnections(temporary[lastKey].SomeConnection);
-                temporary.Remove(lastKey);
-            }
-        }
-    }
-
-    public void CheckIntersecting(List<Tile> _connections, Tile _tile)
-    {
-        var tileData = new TileData
-        {
-            SomeCid = _connections[0].cid,
-            SomeConnectionTile = _tile,
-            SomeConnection = new List<Tile>(_connections)
-        };
-
-        int nextKey = temporary.Keys.Count > 0 ? temporary.Keys.Max() + 1 : 1;
-        temporary.Add(nextKey, tileData);
-
-        int index = _connections.IndexOf(_tile);
-        _connections.Add(_connections[index]);
-        CheckIsConnections(_connections);
-        _connections.Add(_connections[_connections.Count - 2]);
-        CheckIsConnections(_connections);
-        CheckIsFillColor();
-    }
-
-    public bool CheckIfTilesMatch()
-    {
-        return allTiles.All((tile) => tile.coefficient > 0);
-    }
-
-    public bool CheckIsTurning(List<Tile> _connections)
-    {
-        return _connections.FindAll((tile) => tile.cid > 0 && tile.coefficient == tile.cid).Count == 2;
-    }
-
-    bool IsMouseOutsideGrid()
-    {
-        return mouseGridY > dimensionY2 || mouseGridY < dimensionY1 || mouseGridX > dimensionX2 || mouseGridX < dimensionX1;
-    }
-
-    public bool CheckIsShiftNotOnNext(int gridX, int gridY, Vector3[] tileCorners)
-    {
-        return  System.Math.Abs(gridX - (gridX > (int)tileCorners[2].x ? (int)tileCorners[2].x : (int)tileCorners[0].x)) > 101 || 
-                System.Math.Abs(gridY - (gridY > (int)tileCorners[2].y ? (int)tileCorners[2].y : (int)tileCorners[0].y)) > 101;
-    }
-
-    public bool CheckIsShiftDiagonal(int gridX, int gridY, Vector3[] tileCorners)
-    {
-        return (gridX < (int)tileCorners[0].x && gridY > (int)tileCorners[2].y) || (gridX < (int)tileCorners[0].x && gridY < (int)tileCorners[0].y) || (gridX > (int)tileCorners[2].x && gridY > (int)tileCorners[2].y) || (gridX > (int)tileCorners[2].x && gridY < (int)tileCorners[0].y);
-    }
-    
-    public void CheckIsConnections(List<Tile> _connections)
-    {
-        bool foundPair = true;
-
-        while (foundPair)
-        {
-            foundPair = false;
-
-            for (int i = 0; i < _connections.Count; i++)
-            {
-                for (int j = i + 1; j < _connections.Count; j++)
-                {
-                    if (_connections[i] == _connections[j])
+                    if (answer[i][j + 1].coefficient > 0 && answer[i][j + 1].coefficient != answer[i][j].coefficient)
                     {
-                        for (int k = i; k <= j; k++)
-                        {
-                            _connections[k].ResetConnection();
-                            
-                            if (k + 1 < j)
-                            {
-                                _connections[k + 1].coefficient = 0;
-                            }
-                        }
-                        
-                        _connections.RemoveRange(i + 1, j - i);
-                        foundPair = true;
-                        break;
+                        ProcessTemporaryConnection(answer[i][j + 1]);
                     }
                 }
 
-                if (foundPair) break;
+                SetTileConnections(listConnection[i]);
+                break;
             }
         }
-    }
-
-    public void CheckIsFillColor()
-    {
-        for (int i = 0; i < allTiles.Length; i++)
-        {
-            allFills[i].SetFillColor(allColorConnection[allTiles[i].coefficient]);
-        }
-    }
-
-    void onTileSelected(Tile _tile)
-    {
-        if (_tile.isSelected == true)
-        {
-            if (_tile.coefficient > 0 || _tile.cid > 0)
-            {
-                value = (_tile.coefficient > _tile.cid) ? _tile.coefficient : _tile.cid;
-                SelectedTile(listConnection[value - 1], _tile);
-            }
-        }
-        else
-        {
-            List<List<Tile>> newList = new List<List<Tile>>();
-
-            for (int i = 0; i < listConnection.Count; i++)
-            {
-                newList.Add(new List<Tile>(listConnection[i]));
-            }
-
-            int nextKey = dictionary.Keys.Count > 0 ? dictionary.Keys.Max() + 1 : 1;
-            dictionary.Add(nextKey, newList);
-            canDrawConnection = false;
-        }
-    }
-
-    public void SelectedTile(List<Tile> _connections, Tile _tile)
-    {
-        int index = Array.IndexOf(allTiles, _tile);
-
-        if (_tile.cid > 0)
-        {
-            if (_connections.Count > 0)
-            {
-                if (_tile != _connections[0])
-                {
-                    _connections[0].coefficient = 0;
-                    _connections.Add(_connections[0]);
-                    _connections.Insert(0, _tile);
-                }
-                else
-                {
-                    _connections.Add(_connections[0]);
-                }
-
-                CheckIsConnections(_connections);
-                connectionTile = _tile;
-                connectionTile.coefficient = _connections[0].cid;
-            }
-            else
-            {
-                connectionTile = _tile;
-                connectionTile.coefficient = connectionTile.cid;
-            }
-        }
-        else
-        {
-            connectionTile = _tile;
-            connectionTile.coefficient = _connections[0].cid;
-        }
-
-        _connections.Add(connectionTile);
-        CheckIsConnections(_connections);
-        allFills[index].SetFillColor(allColorConnection[connectionTile.coefficient]);
-        CheckIsFillColor();
-        canDrawConnection = true;
-    }
-
-    public Vector3[] FindTileCoordinates(Tile _tileObject)
-    {
-        var tileCorners = new Vector3[4];
-        _tileObject.GetComponent<RectTransform>().GetWorldCorners(tileCorners);
-        return tileCorners;
-    }
-
-    public bool CheckMouseOutsideTile(int gridX, int gridY, Vector3[] tileCorners)
-    {
-        return gridY > (int)tileCorners[2].y || gridY < (int)tileCorners[0].y || gridX > (int)tileCorners[2].x || gridX < (int)tileCorners[0].x;
     }
 
     public void RestartGame()
@@ -627,65 +634,29 @@ public class Field : MonoBehaviour
 
     public void SettingGame()
     {
-        setting.SetActive(true);
+        _setting.SetActive(true);
         isSetting = true;
     }
 
     public void QuitSetting()
     {
-        setting.SetActive(false);
+        _setting.SetActive(false);
         isSetting = false;
-    }
-
-    public void OutSetting()
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            if (IsPointerOutsideRect())
-            {
-                setting.SetActive(false);
-                isSetting = false;
-            }
-        }
-    }
-
-    private bool IsPointerOutsideRect()
-    {
-        if (settingRectTransform == null) return false;
-
-        Vector2 localMousePosition = settingRectTransform.InverseTransformPoint(Input.mousePosition);
-        return !settingRectTransform.rect.Contains(localMousePosition);
     }
 
     public void ColorLabels()
     {
-        if(colorLabel)
+        colorLabel = !colorLabel;
+        
+        foreach (Tile tile in allTiles)
         {
-            foreach (Tile tile in allTiles)
+            if (tile.cid > 0)
             {
-                if (tile.cid > 0)
-                {
-                    tile.ResetMarkText();
-                }
+                tile.SetMarkText(colorLabel);
             }
+        }
 
-            colorLabel = false;
-            _true.SetActive(false);
-            _false.SetActive(true);
-        }
-        else
-        {
-            foreach (Tile tile in allTiles)
-            {
-                if (tile.cid > 0)
-                {
-                    tile.SetMarkText();
-                }
-            }
-            
-            colorLabel = true;
-            _false.SetActive(false);
-            _true.SetActive(true);
-        }
+        _true.SetActive(colorLabel);
+        _false.SetActive(!colorLabel);
     }
 }

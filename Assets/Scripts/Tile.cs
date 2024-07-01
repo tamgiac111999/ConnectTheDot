@@ -1,68 +1,44 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using System;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
 public class Tile : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
+    private int _cid = 0;
+    private int _coefficient = 0;
     private bool _isSelected = false;
-    private bool _isPlayable = false;
-    public int cid = 0;
-    public int coefficient = 0;
-    public static int UNPLAYABLE_INDEX = 0;
-    public static string NAME_MARK = "Mark";
-    public static string NAME_CONNECTION = "Connection";
 
     [HideInInspector]
     public UnityEvent<Tile> onSelected;
 
-    public Image ConnectionComponentImage
+    public Image ConnectionComponentImage => transform.Find("Connection/Pipe").GetComponent<Image>();
+
+    public Image MarkComponentImage => transform.Find("Mark").GetComponent<Image>();
+
+    public Color ConnectionColor => ConnectionComponentImage.color;
+
+    public int cid
     {
-        get
-        {
-            return this.transform.Find(NAME_CONNECTION).gameObject.transform.Find("Pipe").gameObject.GetComponent<Image>();
-        }
-        set { }
+        get => _cid;
+        set => _cid = value;
     }
 
-    public Image MarkComponentImage
+    public int coefficient
     {
-        get
-        {
-            return this.transform.Find(NAME_MARK).gameObject.GetComponent<Image>();
-        }
-        set { }
+        get => _coefficient;
+        set => _coefficient = value;
     }
 
     public bool isSelected
     {
-        get { return _isSelected; }
-        set { this._isSelected = value; }
-    }
-
-    public bool isPlayable
-    {
-        get { return this._isPlayable; }
-        set { this._isPlayable = value; }
-    }
-
-    public Color ConnectionColor
-    {
-        get
-        {
-            return this.ConnectionComponentImage.color;
-        }
-        set { }
+        get => _isSelected;
+        set => _isSelected = value;
     }
 
     void Start()
     {
-        _isPlayable = coefficient > UNPLAYABLE_INDEX || cid > UNPLAYABLE_INDEX;
-
-        if (_isPlayable)
+        if (_coefficient > 0 || _cid > 0)
         {
             SetConnectionColor(ConnectionComponentImage.color);
         }
@@ -72,58 +48,37 @@ public class Tile : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
         }
     }
 
-    public void SetConnectionColor(Color color)
-    {
-        ConnectionComponentImage.color = color;
-    }
+    public void SetConnectionColor(Color color) => ConnectionComponentImage.color = color;
 
-    public void SetMarkColor(Color color)
-    {
-        MarkComponentImage.color = color;
-    }
+    public void SetMarkColor(Color color) => MarkComponentImage.color = color;
 
     public void ResetConnection()
     {
-        var connection = this.transform.Find(NAME_CONNECTION).gameObject;
+        var connection = transform.Find("Connection").gameObject;
         connection.SetActive(false);
         connection.transform.eulerAngles = Vector3.zero;
     }
 
-    public void SetMarkText()
-    {
-        var markTextObject = this.transform.Find(NAME_MARK).gameObject.transform.Find("Text").gameObject;
-        markTextObject.SetActive(true);
-    }
-    public void ResetMarkText()
-    {
-        var markTextObject = this.transform.Find(NAME_MARK).gameObject.transform.Find("Text").gameObject;
-        markTextObject.SetActive(false);
-    }
+    public void SetMarkText(bool isActive) => transform.Find("Mark/Text").gameObject.SetActive(isActive);
 
     public void ConnectionToSide(bool top, bool right, bool bottom, bool left)
     {
-        var connection = this.transform.Find(NAME_CONNECTION).gameObject;
+        var connection = transform.Find("Connection").gameObject;
         connection.SetActive(true);
-        connection.transform.eulerAngles = Vector3.zero;
-        int angle = right ? -90 : bottom ? -180 : left ? -270 : 0;
-        this.transform.Find(NAME_CONNECTION).gameObject.transform.Rotate(new Vector3(0, 0, angle));
+        connection.transform.eulerAngles = new Vector3(0, 0, right ? -90 : bottom ? -180 : left ? -270 : 0);
     }
-    
+
     public void OnPointerDown(PointerEventData eventData)
     {
         _isSelected = true;
         InvokeOnSelected();
     }
+
     public void OnPointerUp(PointerEventData eventData)
     {
         _isSelected = false;
         InvokeOnSelected();
     }
-    public void InvokeOnSelected()
-    {
-        if (onSelected != null)
-        {
-            onSelected.Invoke(this.GetComponent<Tile>());
-        }
-    }
+
+    private void InvokeOnSelected() => onSelected?.Invoke(this);
 }

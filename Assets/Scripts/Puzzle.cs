@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
@@ -12,7 +10,7 @@ public class Puzzle : MonoBehaviour
 
     public int levelPuzzle
     {
-        get { return _levelPuzzle; }
+        get => _levelPuzzle;
         set
         {
             _levelPuzzle = value;
@@ -20,25 +18,15 @@ public class Puzzle : MonoBehaviour
         }
     }
 
-    void Awake()
-    {
-        instancePuzzle = this;
-    }
+    void Awake() => instancePuzzle = this;
 
     void Start()
     {
-        int index = 1;
-        
-        foreach (var umbrella in broard)
+        for (int i = 0; i < broard.Length; i++)
         {
-            umbrella.level = index;
-            umbrella.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = umbrella.level.ToString();
-            index++;
-        }
-
-        foreach (var umbrella in broard)
-        {
-            umbrella.OnRightClick.AddListener(clickedUmbrella => HandleRightClick(clickedUmbrella));
+            broard[i].level = i + 1;
+            broard[i].transform.Find("Text").GetComponent<TextMeshProUGUI>().text = broard[i].level.ToString();
+            broard[i].OnRightClick.AddListener(HandleRightClick);
         }
     }
     
