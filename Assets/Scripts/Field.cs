@@ -1,11 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using System;
-using TMPro;
-using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using System.Linq;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
 
 public class Field : MonoBehaviour
 {
@@ -14,12 +14,12 @@ public class Field : MonoBehaviour
     public Color[] allColorConnection;
     public Color[] allColorMark;
     public Canvas canvas;
-    public TextMeshProUGUI textLevel;
     public GameObject _true;
     public GameObject _false;
-    public GameObject _setting;
-    public GameObject _behind;
-    public GameObject _grid;
+    public GameObject _above;
+    public GameObject _between;
+    public GameObject _below;
+    public GameObject _settings;
 
     private bool canDrawConnection = false;
     private bool isSetting = false;
@@ -37,6 +37,7 @@ public class Field : MonoBehaviour
     private List<int> loadedGridLevel;
     private List<List<int>> loadedAnswerLevel;
     private RectTransform canvasRectTransform;
+    private RectTransform betweenRectTransform;
     private RectTransform settingRectTransform;
     private RectTransform behindRectTransform;
     private RectTransform gridRectTransform;
@@ -48,8 +49,16 @@ public class Field : MonoBehaviour
 
     void Awake()
     {
+        canvasRectTransform = canvas.GetComponent<RectTransform>();
+        betweenRectTransform = _between.GetComponent<RectTransform>();
         levelIndex = PlayerPrefs.GetInt("LevelPuzzle", 1);
-        textLevel.text = "Level " + levelIndex.ToString();
+        _above.transform.Find("Level/TextLevel").GetComponent<TextMeshProUGUI>().text = "Level " + levelIndex.ToString();
+        float factor = canvasRectTransform.rect.width / (canvasRectTransform.rect.height / 2.0f) + 0.1f;
+
+        if (factor > 1.2f)
+        {
+            factor = 1.2f;
+        }
 
         if (PlayerPrefs.HasKey("gridLevel" + levelIndex))
         {
@@ -58,14 +67,179 @@ public class Field : MonoBehaviour
             loadedAnswerLevel = SaveLoadManager.instanceManager.LoadAnswerLevel("answerLevel", levelIndex);
         }
 
+        float newSize = betweenRectTransform.rect.width / factor;
+
+        if (newSize * factor > canvasRectTransform.rect.height / 2.0f)
+        {
+            newSize = canvasRectTransform.rect.height / 2.0f / factor;
+        }
+
+        ChangeRectWidthHeight(betweenRectTransform, newSize, newSize);
         InitializeFills();
         InitializeTiles();
+
+        if (canvasRectTransform.rect.height > canvasRectTransform.rect.width)
+        {
+            ChangeScale(_above.transform.Find("Back").GetComponent<RectTransform>(), factor);
+            ChangeScale(_above.transform.Find("Level").GetComponent<RectTransform>(), factor);
+            ChangeScale(_above.transform.Find("Setting").GetComponent<RectTransform>(), factor);
+            ChangeScale(_between.transform.GetComponent<RectTransform>(), factor);
+            ChangeScale(_below.transform.GetComponent<RectTransform>(), factor);
+            ChangeScale(_settings.transform.GetComponent<RectTransform>(), factor);
+            float aspectRatio = canvasRectTransform.rect.height / canvasRectTransform.rect.width;
+            float leftRightValue = aspectRatio < 1.6f ? -25.0f : aspectRatio > 2.4f ? 25.0f : 0;
+
+            if (leftRightValue != 0)
+            {
+                ChangePosition(_above.transform.Find("Back").GetComponent<RectTransform>(), -leftRightValue);
+                ChangePosition(_above.transform.Find("Setting").GetComponent<RectTransform>(), leftRightValue);
+            }
+        }
+    }
+
+    void ChangeScale(RectTransform rectTransform, float scaleFactor)
+    {
+        Vector3 scale = rectTransform.localScale;
+        scale.x *= scaleFactor;
+        scale.y *= scaleFactor;
+        rectTransform.localScale = scale;
+    }
+
+    void ChangePosition(RectTransform rectTransform, float newPosition)
+    {
+        Vector3 position = rectTransform.anchoredPosition;
+        position.x += newPosition;
+        rectTransform.anchoredPosition = position;
+    }
+
+    void InitializeFills()
+    {
+        allFills = new Fill[loadedWidth * loadedHeight];
+        GameObject fillPrefab = Resources.Load<GameObject>("FillPrefab");
+        behindRectTransform = _between.transform.Find("Behind").GetComponent<RectTransform>();
+        GridLayoutGroup behindLayout = _between.transform.Find("Behind").GetComponent<GridLayoutGroup>();
+
+        behindLayout.cellSize = new Vector2(
+            (behindRectTransform.rect.width - behindLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
+            (behindRectTransform.rect.height - behindLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
+        );
+
+        AdjustRectTransformSize(behindRectTransform, behindLayout, loadedWidth, loadedHeight);
+
+        for (int i = 0; i < loadedWidth * loadedHeight; i++)
+        {
+            GameObject fillInstance = Instantiate(fillPrefab, behindRectTransform);
+            Fill fillComponent = fillInstance.GetComponent<Fill>();
+
+            if (fillComponent != null)
+            {
+                allFills[i] = fillComponent;
+            }
+        }
+    }
+
+    void InitializeTiles()
+    {
+        allTiles = new Tile[loadedWidth * loadedHeight];
+        GameObject tilePrefab = Resources.Load<GameObject>("TilePrefab");
+        gridRectTransform = _between.transform.Find("Grid").GetComponent<RectTransform>();
+        GridLayoutGroup gridLayout = _between.transform.Find("Grid").GetComponent<GridLayoutGroup>();
+
+        gridLayout.cellSize = new Vector2(
+            (gridRectTransform.rect.width - gridLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
+            (gridRectTransform.rect.height - gridLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
+        );
+
+        AdjustRectTransformSize(gridRectTransform, gridLayout, loadedWidth, loadedHeight);
+
+        for (int i = 0; i < loadedWidth * loadedHeight; i++)
+        {
+            GameObject tileInstance = Instantiate(tilePrefab, gridRectTransform);
+            SetTilePrefabProperties(tileInstance, gridLayout);
+            Tile tileComponent = tileInstance.GetComponent<Tile>();
+
+            if (tileComponent != null)
+            {
+                allTiles[i] = tileComponent;
+            }
+        }
+
+        InitializeTileProperties();
+        InitializeConnections();
+    }
+
+    void ChangeRectWidthHeight(RectTransform rectTransform, float newWidth, float newHeight)
+    {
+        Vector2 currentSize = rectTransform.rect.size;
+        Vector2 newSize = new Vector2(newWidth, newHeight);
+        Vector2 sizeDifference = newSize - currentSize;
+        rectTransform.sizeDelta += sizeDifference;
+    }
+
+    void AdjustRectTransformSize(RectTransform rectTransform, GridLayoutGroup layoutGroup, int width, int height)
+    {
+        if (width != height)
+        {
+            float cellSizeChange = (width > height) ? -1 : 1;
+            float newSizeDelta = rectTransform.rect.height + (layoutGroup.spacing.y + (Mathf.Abs(width - height)) * layoutGroup.cellSize.y) * cellSizeChange;
+            ChangeRectWidthHeight(rectTransform, rectTransform.rect.width, newSizeDelta);
+        }
+    }
+
+    void SetTilePrefabProperties(GameObject tileInstance, GridLayoutGroup gridLayout)
+    {
+        RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
+        pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 4, gridLayout.cellSize.y + 4);
+        pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 4);
+        RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
+        markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
+        TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
+        textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
+    }
+
+    void InitializeTileProperties()
+    {
+        for (int i = 0; i < allTiles.Length; i++)
+        {
+            allTiles[i].onSelected.AddListener(onTileSelected);
+            allTiles[i].cid = loadedGridLevel[i];
+
+            if (allTiles[i].cid > 0)
+            {
+                allTiles[i].SetConnectionColor(allColorMark[allTiles[i].cid - 1]);
+                allTiles[i].SetMarkColor(allColorMark[allTiles[i].cid - 1]);
+                allTiles[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
+            }
+        }
+    }
+
+    void InitializeConnections()
+    {
+        for (int i = 0; i < loadedGridLevel.Max(); i++)
+        {
+            listConnection.Add(new List<Tile>());
+        }
+
+        if (loadedAnswerLevel != null && loadedAnswerLevel.Count > 0)
+        {
+            for (int i = 0; i < loadedAnswerLevel.Count; i++)
+            {
+                List<int> tileIndices = loadedAnswerLevel[i];
+                List<Tile> tileList = new List<Tile>();
+
+                foreach (int index in tileIndices)
+                {
+                    tileList.Add(allTiles[index]);
+                }
+
+                answer.Add(tileList);
+            }
+        }
     }
 
     void Start()
     {
-        canvasRectTransform = canvas.GetComponent<RectTransform>();
-        settingRectTransform = _setting.GetComponent<RectTransform>();
+        settingRectTransform = _settings.GetComponent<RectTransform>();
         Vector3[] corners = new Vector3[4];
         gridRectTransform.GetWorldCorners(corners);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRectTransform, RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, corners[0]), canvas.worldCamera, out Vector2 localCorner0);
@@ -101,7 +275,7 @@ public class Field : MonoBehaviour
 
                 if (!settingRectTransform.rect.Contains(localMousePosition))
                 {
-                    _setting.SetActive(false);
+                    _settings.SetActive(false);
                     isSetting = false;
                 }
             }
@@ -456,123 +630,6 @@ public class Field : MonoBehaviour
         canDrawConnection = true;
     }
 
-    void InitializeFills()
-    {
-        allFills = new Fill[loadedWidth * loadedHeight];
-        GameObject fillPrefab = Resources.Load<GameObject>("FillPrefab");
-        behindRectTransform = _behind.GetComponent<RectTransform>();
-        GridLayoutGroup behindLayout = _behind.GetComponent<GridLayoutGroup>();
-
-        behindLayout.cellSize = new Vector2(
-            (behindRectTransform.rect.width - behindLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
-            (behindRectTransform.rect.height - behindLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
-        );
-
-        AdjustRectTransformSize(behindRectTransform, behindLayout, loadedWidth, loadedHeight);
-
-        for (int i = 0; i < loadedWidth * loadedHeight; i++)
-        {
-            GameObject fillInstance = Instantiate(fillPrefab, behindRectTransform);
-            Fill fillComponent = fillInstance.GetComponent<Fill>();
-
-            if (fillComponent != null)
-            {
-                allFills[i] = fillComponent;
-            }
-        }
-    }
-
-    void InitializeTiles()
-    {
-        allTiles = new Tile[loadedWidth * loadedHeight];
-        GameObject tilePrefab = Resources.Load<GameObject>("TilePrefab");
-        gridRectTransform = _grid.GetComponent<RectTransform>();
-        GridLayoutGroup gridLayout = _grid.GetComponent<GridLayoutGroup>();
-
-        gridLayout.cellSize = new Vector2(
-            (gridRectTransform.rect.width - gridLayout.spacing.x * (loadedWidth + 1)) / loadedWidth,
-            (gridRectTransform.rect.height - gridLayout.spacing.y * (loadedWidth + 1)) / loadedWidth
-        );
-
-        AdjustRectTransformSize(gridRectTransform, gridLayout, loadedWidth, loadedHeight);
-
-        for (int i = 0; i < loadedWidth * loadedHeight; i++)
-        {
-            GameObject tileInstance = Instantiate(tilePrefab, gridRectTransform);
-            SetTilePrefabProperties(tileInstance, gridLayout);
-            Tile tileComponent = tileInstance.GetComponent<Tile>();
-
-            if (tileComponent != null)
-            {
-                allTiles[i] = tileComponent;
-            }
-        }
-
-        InitializeTileProperties();
-        InitializeConnections();
-    }
-
-    void AdjustRectTransformSize(RectTransform rectTransform, GridLayoutGroup layoutGroup, int width, int height)
-    {
-        if (width != height)
-        {
-            float cellSizeChange = (width > height) ? -1 : 1;
-            float newSizeDelta = rectTransform.rect.height + (layoutGroup.spacing.y + (Mathf.Abs(width - height)) * layoutGroup.cellSize.y) * cellSizeChange;
-            rectTransform.sizeDelta = new Vector2(rectTransform.rect.width, newSizeDelta);
-        }
-    }
-
-    void SetTilePrefabProperties(GameObject tileInstance, GridLayoutGroup gridLayout)
-    {
-        RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
-        pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 5f, gridLayout.cellSize.y + 5f);
-        pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 5f);
-        RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
-        markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
-        TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
-        textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
-    }
-
-    void InitializeTileProperties()
-    {
-        for (int i = 0; i < allTiles.Length; i++)
-        {
-            allTiles[i].onSelected.AddListener(onTileSelected);
-            allTiles[i].cid = loadedGridLevel[i];
-
-            if (allTiles[i].cid > 0)
-            {
-                allTiles[i].SetConnectionColor(allColorMark[allTiles[i].cid - 1]);
-                allTiles[i].SetMarkColor(allColorMark[allTiles[i].cid - 1]);
-                allTiles[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
-            }
-        }
-    }
-
-    void InitializeConnections()
-    {
-        for (int i = 0; i < loadedGridLevel.Max(); i++)
-        {
-            listConnection.Add(new List<Tile>());
-        }
-
-        if (loadedAnswerLevel != null && loadedAnswerLevel.Count > 0)
-        {
-            for (int i = 0; i < loadedAnswerLevel.Count; i++)
-            {
-                List<int> tileIndices = loadedAnswerLevel[i];
-                List<Tile> tileList = new List<Tile>();
-
-                foreach (int index in tileIndices)
-                {
-                    tileList.Add(allTiles[index]);
-                }
-
-                answer.Add(tileList);
-            }
-        }
-    }
-
     public void Undo()
     {
         if (dictionary.Count <= 1) return;
@@ -634,13 +691,13 @@ public class Field : MonoBehaviour
 
     public void SettingGame()
     {
-        _setting.SetActive(true);
+        _settings.SetActive(true);
         isSetting = true;
     }
 
     public void QuitSetting()
     {
-        _setting.SetActive(false);
+        _settings.SetActive(false);
         isSetting = false;
     }
 
@@ -656,7 +713,7 @@ public class Field : MonoBehaviour
             }
         }
 
-        _true.SetActive(colorLabel);
-        _false.SetActive(!colorLabel);
+        _settings.transform.Find("ColorLabels/Button/True").gameObject.SetActive(colorLabel);
+        _settings.transform.Find("ColorLabels/Button/False").gameObject.SetActive(!colorLabel);
     }
 }

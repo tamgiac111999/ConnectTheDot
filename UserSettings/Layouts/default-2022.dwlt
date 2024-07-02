@@ -19,7 +19,7 @@ MonoBehaviour:
     width: 1920
     height: 997
   m_ShowMode: 4
-  m_Title: Project
+  m_Title: Simulator
   m_RootView: {fileID: 2}
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
@@ -99,7 +99,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 100}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 0
-  controlID: 73
+  controlID: 15
 --- !u!114 &5
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -140,8 +140,8 @@ MonoBehaviour:
     y: 0
     width: 1017
     height: 947
-  m_MinSize: {x: 201, y: 221}
-  m_MaxSize: {x: 4001, y: 4021}
+  m_MinSize: {x: 200, y: 200}
+  m_MaxSize: {x: 4000, y: 4000}
   m_ActualView: {fileID: 16}
   m_Panes:
   - {fileID: 14}
@@ -192,8 +192,8 @@ MonoBehaviour:
     y: 0
     width: 550
     height: 947
-  m_MinSize: {x: 276, y: 71}
-  m_MaxSize: {x: 4001, y: 4021}
+  m_MinSize: {x: 275, y: 50}
+  m_MaxSize: {x: 4000, y: 4000}
   m_ActualView: {fileID: 12}
   m_Panes:
   - {fileID: 12}
@@ -235,7 +235,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 1
   m_Script: {fileID: 12006, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: ProjectBrowser
+  m_Name: ConsoleWindow
   m_EditorClassIdentifier: 
   m_Children: []
   m_Position:
@@ -244,14 +244,14 @@ MonoBehaviour:
     y: 454
     width: 353
     height: 493
-  m_MinSize: {x: 232, y: 271}
-  m_MaxSize: {x: 10002, y: 10021}
-  m_ActualView: {fileID: 13}
+  m_MinSize: {x: 100, y: 100}
+  m_MaxSize: {x: 4000, y: 4000}
+  m_ActualView: {fileID: 11}
   m_Panes:
   - {fileID: 13}
   - {fileID: 11}
-  m_Selected: 0
-  m_LastSelected: 1
+  m_Selected: 1
+  m_LastSelected: 0
 --- !u!114 &11
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -272,10 +272,10 @@ MonoBehaviour:
     m_Tooltip: 
   m_Pos:
     serializedVersion: 2
-    x: 2093
-    y: 688
-    width: 249
-    height: 309
+    x: 2383
+    y: 527
+    width: 351
+    height: 472
   m_SerializedDataModeController:
     m_DataMode: 0
     m_PreferredDataMode: 0
@@ -327,7 +327,7 @@ MonoBehaviour:
     m_ControlHash: -371814159
     m_PrefName: Preview_InspectorPreview
   m_LastInspectedObjectInstanceID: -1
-  m_LastVerticalScrollValue: 1
+  m_LastVerticalScrollValue: 0
   m_GlobalObjectId: 
   m_InspectorMode: 0
   m_LockTracker:
@@ -378,7 +378,7 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Scenes
+    - Assets/Resources
     m_Globs: []
     m_OriginalText: 
     m_ImportLogFlags: 0
@@ -394,7 +394,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 545a0000
     m_LastClickedID: 23124
-    m_ExpandedIDs: 000000003a5b00003c5b00003e5b0000405b0000425b0000445b0000
+    m_ExpandedIDs: 000000006c5a00006e5a0000705a0000725a0000745a0000765a0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -420,23 +420,23 @@ MonoBehaviour:
       m_ResourceFile: 
   m_AssetTreeState:
     scrollPos: {x: 0, y: 86}
-    m_SelectedIDs: 
+    m_SelectedIDs: 1ea5fbff
     m_LastClickedID: 0
-    m_ExpandedIDs: ffffffff000000003a5b00003c5b00003e5b0000405b0000425b0000445b0000
+    m_ExpandedIDs: ffffffff000000006c5a00006e5a0000705a0000725a0000745a0000765a0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
-      m_Name: 
-      m_OriginalName: 
+      m_Name: GamePlay
+      m_OriginalName: GamePlay
       m_EditFieldRect:
         serializedVersion: 2
         x: 0
         y: 0
         width: 0
         height: 0
-      m_UserData: 0
+      m_UserData: 25836
       m_IsWaitingForDelay: 0
       m_IsRenaming: 0
-      m_OriginalEventType: 11
+      m_OriginalEventType: 0
       m_IsRenamingFilename: 1
       m_ClientGUIView: {fileID: 10}
     m_SearchString: 
@@ -447,8 +447,8 @@ MonoBehaviour:
       m_Icon: {fileID: 0}
       m_ResourceFile: 
   m_ListAreaState:
-    m_SelectedInstanceIDs: 
-    m_LastClickedInstanceID: 0
+    m_SelectedInstanceIDs: 1ea5fbff
+    m_LastClickedInstanceID: -285410
     m_HadKeyboardFocusLastEvent: 0
     m_ExpandedInstanceIDs: c6230000
     m_RenameOverlay:
@@ -860,9 +860,9 @@ MonoBehaviour:
     speed: 2
     m_Value: {x: 0, y: 0, z: 0, w: 1}
   m_Size:
-    m_Target: 63.304855
+    m_Target: 72.156105
     speed: 2
-    m_Value: 63.304855
+    m_Value: 72.156105
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -924,9 +924,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: 406d0000
+      m_SelectedIDs: 1ea5fbff
       m_LastClickedID: 0
-      m_ExpandedIDs: 46b2ffff44b4ffff88d2fffff4d3ffffcad5ffff2efbffffea590000f65900001c6f0000266f0000a86f0000207600002c76000036860000c2860000
+      m_ExpandedIDs: 32a5fbff58fbfbff0025fcff2253fcffee54fcffa262fcff6c65fcff9c89fcffba8cfcff108dfcffa03efdff1e40fdffc057fdff2e72fdffc073fdff1683fdffd6adfdff0eb1fdffc8bbfdffdebffdff06c7fdff86d5fdff2cdffdffa2e4fdffb401feffb009feffd60ffeff2616feff0618feff5e1bfeff5621feff9622feff922cfeff4646feff4855feff925dfeff7074feff307afeff168cfeff0ab5feff2cb7feffd2c6feffb4c8feff06ccfeffd6fafeff9441ffffb649ffff8251fffffc59ffff1867ffffde6fffffe07bfffff08dffff129dffffc4a6ffffeeacffff6ab9ffff9ebcffff50c1ffffbac4ffff22fbffffc6590000cc590000dc590000e6590000f45900000a5a0000225a0000086a0000126a00006876000072760000ec760000ca7a0000e07a00003a7b00004e7b0000067d00001c7d00008a7d00006e8100007881000084810000f2810000a6830000b08300002a840000de850000f485000062860000168800002c8800009a8800000c9f0000169f0000909f0000e09f0000acad0000b6ad000030ae00001eb2000028b20000a2b2000012b600001cb6000096b6000054b900005ab900006ab9000074b9000082b9000098b90000bec70000c8c7000042c8000010cb0000a8cb0000b2cb0000becb000012cc00002ccc00008ccc00008ece000098ce0000c2d6000046d700002ada0000aeda000046df0000cadf000022e70000a6e7000012eb00001ceb000096eb00007cef000086ef000000f00000a0f5000024f60000daf700005ef8000014fa00001efa000098fa00004afc000054fc0000cefc00002a05010034050100ae05010062070100e6070100200a0100a40a0100461001005c100100ca1001007811010010120100261201007a12010094120100f4120100c41901005c1a0100661a0100721a0100c61a0100cc1a0100d21a0100e01a0100401b0100321d01003c1d0100de2c0100622d0100ce300100d8300100523101005a3a0100ae3a0100b83a0100323b0100d240010080730100047401007676010080760100be7e01003c7f0100467f0100527f0100987f0100ac7f0100c07f0100e47f010026800100128201001c8201004a86010054860100ce860100248901002e8901006a89010058960100dc960100aca0010030a10100
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -987,7 +987,7 @@ MonoBehaviour:
   m_SerializedViewNames:
   - UnityEditor.GameView
   m_SerializedViewValues:
-  - D:\hnaht\ConnectTheDot\Library\PlayModeViewStates\501063097c8f41b4c93f25cf3b3c1ddf
+  - D:\hnaht\ConnectTheDot\Library\PlayModeViewStates\ede4943296624dd40968e2148f094029
   m_PlayModeViewName: Device Simulator
   m_ShowGizmos: 0
   m_TargetDisplay: 0
@@ -1012,7 +1012,7 @@ MonoBehaviour:
     fitToScreenEnabled: 1
     rotationDegree: 0
     highlightSafeAreaEnabled: 0
-    friendlyName: Apple iPhone 12 Pro
+    friendlyName: Apple iPhone 12
     screenIndex: 0
     networkReachability: 1
     systemLanguage: 10
