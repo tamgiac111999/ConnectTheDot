@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 public class Fill : MonoBehaviour
 {
-    public Image FillComponentImage => GetComponent<Image>();
+    public Image FillComponentImage => transform.Find("Background").GetComponent<Image>();
 
     public Color FillColor
     {

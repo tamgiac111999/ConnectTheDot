@@ -35,6 +35,7 @@ public class Field : MonoBehaviour
     private int mouseGridX;
     private int mouseGridY;
     private List<int> loadedGridLevel;
+    private List<int> loadedWallLevel;
     private List<List<int>> loadedAnswerLevel;
     private RectTransform canvasRectTransform;
     private RectTransform betweenRectTransform;
@@ -65,6 +66,11 @@ public class Field : MonoBehaviour
             SaveLoadManager.instanceManager.LoadLevelDimensions(levelIndex, out loadedWidth, out loadedHeight);
             loadedGridLevel = SaveLoadManager.instanceManager.LoadGridLevel("gridLevel", levelIndex);
             loadedAnswerLevel = SaveLoadManager.instanceManager.LoadAnswerLevel("answerLevel", levelIndex);
+
+            if (PlayerPrefs.HasKey("wallLevel" + levelIndex))
+            {
+                loadedWallLevel = SaveLoadManager.instanceManager.LoadGridLevel("wallLevel", levelIndex);
+            }
         }
 
         float newSize = betweenRectTransform.rect.width / factor;
@@ -166,6 +172,11 @@ public class Field : MonoBehaviour
 
         InitializeTileProperties();
         InitializeConnections();
+
+        if (PlayerPrefs.HasKey("wallLevel" + levelIndex))
+        {
+            InitializeWallProperties();
+        }
     }
 
     void ChangeRectWidthHeight(RectTransform rectTransform, float newWidth, float newHeight)
@@ -188,17 +199,44 @@ public class Field : MonoBehaviour
 
     void SetTilePrefabProperties(GameObject tileInstance, GridLayoutGroup gridLayout)
     {
-        RectTransform pipeRectTransform = tileInstance.transform.Find("Connection/Pipe").GetComponent<RectTransform>();
-        pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x + 4, gridLayout.cellSize.y + 4);
-        pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.4f + 4);
-        RectTransform markRectTransform = tileInstance.transform.Find("Mark").GetComponent<RectTransform>();
+        RectTransform pipeRectTransform = tileInstance.transform.Find("Background/Connection/Pipe").GetComponent<RectTransform>();
+        pipeRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x, gridLayout.cellSize.y);
+        pipeRectTransform.anchoredPosition = new Vector2(0, gridLayout.cellSize.y * 0.415f);
+        RectTransform markRectTransform = tileInstance.transform.Find("Background/Mark").GetComponent<RectTransform>();
         markRectTransform.sizeDelta = new Vector2(gridLayout.cellSize.x * 0.9f, gridLayout.cellSize.y * 0.9f);
-        TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Mark/Text").GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI textMeshPro = tileInstance.transform.Find("Background/Mark/Text").GetComponent<TextMeshProUGUI>();
         textMeshPro.fontSize = gridLayout.cellSize.x * 0.6f;
+    }
+
+    void InitializeWallProperties()
+    {
+        for (int i = 0; i < allTiles.Length; i++)
+        {
+            switch (loadedWallLevel[i])
+            {
+                case 1:
+                    allTiles[i].WallToSide(1);
+                    allTiles[i - loadedWidth].WallToSide(3);
+                    break;
+                case 2:
+                    allTiles[i].WallToSide(2);
+                    allTiles[i + 1].WallToSide(4);
+                    break;
+                case 3:
+                    allTiles[i].WallToSide(3);
+                    allTiles[i + loadedWidth].WallToSide(1);
+                    break;
+                case 4:
+                    allTiles[i].WallToSide(4);
+                    allTiles[i - 1].WallToSide(2);
+                    break;
+            }
+        }
     }
 
     void InitializeTileProperties()
     {
+        GameObject emptyBoxPrefab = Resources.Load<GameObject>("EmptyPrefab");
         for (int i = 0; i < allTiles.Length; i++)
         {
             allTiles[i].onSelected.AddListener(onTileSelected);
@@ -208,7 +246,12 @@ public class Field : MonoBehaviour
             {
                 allTiles[i].SetConnectionColor(allColorMark[allTiles[i].cid - 1]);
                 allTiles[i].SetMarkColor(allColorMark[allTiles[i].cid - 1]);
-                allTiles[i].transform.Find("Mark").gameObject.transform.Find("Text").gameObject.GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
+                allTiles[i].transform.Find("Background/Mark/Text").GetComponent<TextMeshProUGUI>().text = allTiles[i].cid.ToString();
+            }
+            else if (allTiles[i].cid == -1)
+            {
+                GameObject emptyBoxInstance = Instantiate(emptyBoxPrefab, allTiles[i].GetComponent<RectTransform>());
+                RectTransform emptyBoxRectTransform = emptyBoxInstance.GetComponent<RectTransform>();
             }
         }
     }
@@ -323,6 +366,10 @@ public class Field : MonoBehaviour
 
         if (IsValidPosition_2(connectionTilePosition)) return;
 
+        if (IsValidPosition_3(hitTile)) return;
+
+        if (IsValidPosition_4(hitTile)) return;
+
         if ((listConnection[value - 1].FindAll(isTile => isTile.cid > 0 && isTile.coefficient == isTile.cid).Count == 2) && hitTile.coefficient != connectionTile.coefficient) return;
 
         UpdateTileColors(hitTile, firstTile, connectionTilePosition);
@@ -379,6 +426,19 @@ public class Field : MonoBehaviour
                     Math.Abs(mouseGridX - ((mouseGridX > (int)connectionTilePosition[2].x) ? (int)connectionTilePosition[2].x : (int)connectionTilePosition[0].x)) > ((dimensionX2 * 2 - (loadedWidth + 1) * 5) / loadedWidth + 5) ||
                     Math.Abs(mouseGridY - ((mouseGridY > (int)connectionTilePosition[2].y) ? (int)connectionTilePosition[2].y : (int)connectionTilePosition[0].y)) > ((dimensionX2 * 2 - (loadedWidth + 1) * 5) / loadedWidth + 5)
                 );
+    }
+
+    bool IsValidPosition_3(Tile hitTile)
+    {
+        return  (connectionTile.wall == 1 && hitTile.wall == 3) ||
+                (connectionTile.wall == 3 && hitTile.wall == 1) ||
+                (connectionTile.wall == 2 && hitTile.wall == 4) ||
+                (connectionTile.wall == 4 && hitTile.wall == 2);
+    }
+
+    bool IsValidPosition_4(Tile hitTile)
+    {
+        return hitTile.cid == -1;
     }
 
     void UpdateTileColors(Tile hitTile, Tile firstTile, Vector2[] connectionTilePosition)

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
+using System;
 
 public class Puzzle : MonoBehaviour
 {
@@ -29,7 +30,7 @@ public class Puzzle : MonoBehaviour
     void Awake()
     {
         instancePuzzle = this;
-        allUmbrellas = new Umbrella[30];
+        allUmbrellas = new Umbrella[21];
         canvasRectTransform = canvas.GetComponent<RectTransform>();
         boardRectTransform = _board.GetComponent<RectTransform>();
         float factor = canvasRectTransform.rect.width / (canvasRectTransform.rect.height / 2.0f) + 0.1f;

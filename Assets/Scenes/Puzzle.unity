@@ -512,6 +512,7 @@ MonoBehaviour:
   _outline: {fileID: 404119691}
   _puzzleText: {fileID: 48918225}
   _board: {fileID: 1714465254}
+  alo_1_RectTransform: {fileID: 0}
 --- !u!114 &252423646
 MonoBehaviour:
   m_ObjectHideFlags: 0

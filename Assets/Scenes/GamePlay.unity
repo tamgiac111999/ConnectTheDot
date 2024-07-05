@@ -1245,15 +1245,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 5
-    m_Right: 5
-    m_Top: 5
-    m_Bottom: 5
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
   m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
   m_CellSize: {x: 100, y: 100}
-  m_Spacing: {x: 5, y: 5}
+  m_Spacing: {x: 0, y: 0}
   m_Constraint: 0
   m_ConstraintCount: 2
 --- !u!114 &444275593
@@ -1263,7 +1263,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 444275590}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -4688,15 +4688,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 5
-    m_Right: 5
-    m_Top: 5
-    m_Bottom: 5
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
   m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
   m_CellSize: {x: 100, y: 100}
-  m_Spacing: {x: 5, y: 5}
+  m_Spacing: {x: 0, y: 0}
   m_Constraint: 0
   m_ConstraintCount: 2
 --- !u!222 &1726625732
